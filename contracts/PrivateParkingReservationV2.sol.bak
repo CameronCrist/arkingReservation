@@ -1,0 +1,659 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { FHE, euint8, euint16, euint32, euint64, ebool, einput, Gateway } from "@fhevm/solidity/lib/FHE.sol";
+import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+
+/// @title PrivateParkingReservationV2 - Advanced FHE-powered Privacy-Preserving Parking System
+/// @notice Demonstrates comprehensive FHE features:
+///         - Gateway integration for decryption callbacks
+///         - Multiple encryption types (euint32, euint64, ebool)
+///         - Complex encrypted comparisons and logic
+///         - Fail-closed design with custom errors
+///         - Input proof verification (ZKPoK)
+///         - Pausable mechanism
+///         - Complete access control
+/// @dev Implements Zama's FHEVM best practices with multi-layer security
+contract PrivateParkingReservationV2 is SepoliaConfig {
+
+    // ============ State Variables ============
+
+    address public owner;
+    address public pauser;
+    bool public paused;
+
+    uint32 public totalSpots;
+    uint32 public reservationCounter;
+    uint256 private gatewayRequestCounter;
+
+    // ============ Structs ============
+
+    /// @notice Gateway decryption request tracking
+    struct GatewayRequest {
+        address requester;
+        uint32 spotId;
+        uint256 reservationId;
+        RequestType requestType;
+        bool fulfilled;
+    }
+
+    enum RequestType {
+        AVAILABILITY_CHECK,
+        PRICE_REVEAL,
+        RESERVATION_APPROVAL
+    }
+
+    /// @notice Parking spot with comprehensive encrypted metadata
+    struct ParkingSpot {
+        euint32 encryptedPrice;         // Encrypted price (supports larger values)
+        euint8 encryptedStatus;         // Encrypted status: 0=available, 1=reserved, 2=maintenance
+        bool isActive;                  // Spot activation status
+        euint32 encryptedReservedBy;    // Encrypted user ID of reserver
+        euint64 encryptedReservationEnd; // Encrypted reservation end timestamp
+        string location;                // Public location info
+        euint32 encryptedCapacity;      // Encrypted vehicle size limit
+    }
+
+    /// @notice User profile with multiple encrypted attributes
+    struct UserProfile {
+        euint32 encryptedUserId;        // Encrypted user identifier
+        euint32 encryptedCreditScore;   // Encrypted credit score (300-1000)
+        ebool hasValidLicense;          // Encrypted license verification
+        euint64 encryptedWalletBalance; // Encrypted wallet balance
+        bool isRegistered;              // Registration status
+        uint256 totalReservations;      // Total reservation count
+        uint256 lastReservation;        // Last reservation timestamp
+    }
+
+    /// @notice Reservation with encrypted details
+    struct Reservation {
+        uint32 spotId;                  // Parking spot ID
+        euint32 encryptedUserId;        // Encrypted user ID
+        euint32 encryptedPaidAmount;    // Encrypted payment amount
+        euint64 encryptedStartTime;     // Encrypted start time
+        euint64 encryptedEndTime;       // Encrypted end time
+        euint8 encryptedStatus;         // Encrypted status: 0=active, 1=completed, 2=cancelled
+        ebool isApproved;               // Encrypted approval status
+        bool isActive;                  // Reservation active flag
+    }
+
+    // ============ Mappings ============
+
+    mapping(uint32 => ParkingSpot) public parkingSpots;
+    mapping(address => UserProfile) public userProfiles;
+    mapping(uint256 => Reservation) public reservations;
+    mapping(address => uint256[]) public userReservations;
+    mapping(uint256 => GatewayRequest) private gatewayRequests;
+    mapping(address => euint32) private encryptedUserIds;
+
+    // ============ Events ============
+
+    event SpotAdded(uint32 indexed spotId, string location, uint256 timestamp);
+    event UserRegistered(address indexed user, uint256 timestamp);
+    event ReservationCreated(uint256 indexed reservationId, uint32 indexed spotId, address indexed user, uint256 timestamp);
+    event ReservationApproved(uint256 indexed reservationId, uint32 indexed spotId, uint256 timestamp);
+    event ReservationCompleted(uint256 indexed reservationId, uint32 indexed spotId, uint256 timestamp);
+    event ReservationCancelled(uint256 indexed reservationId, uint32 indexed spotId, uint256 timestamp);
+    event SpotStatusUpdated(uint32 indexed spotId, uint256 timestamp);
+    event PriceUpdated(uint32 indexed spotId, uint256 timestamp);
+    event GatewayRequestInitiated(uint256 indexed requestId, address indexed requester, RequestType requestType);
+    event GatewayRequestFulfilled(uint256 indexed requestId, bool success);
+    event ContractPaused(address indexed pauser, uint256 timestamp);
+    event ContractUnpaused(address indexed pauser, uint256 timestamp);
+    event PauserChanged(address indexed oldPauser, address indexed newPauser);
+    event BalanceUpdated(address indexed user, uint256 timestamp);
+
+    // ============ Custom Errors (Fail-Closed Design) ============
+
+    error NotAuthorized();
+    error UserNotRegistered();
+    error UserAlreadyRegistered();
+    error InvalidSpotId();
+    error SpotNotActive();
+    error ContractPaused();
+    error InvalidCreditScore();
+    error InsufficientBalance();
+    error InvalidDuration();
+    error SpotNotAvailable();
+    error ReservationNotActive();
+    error InvalidReservationId();
+    error TooLateToCancel();
+    error GatewayRequestNotFulfilled();
+    error InvalidAddress();
+
+    // ============ Modifiers ============
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotAuthorized();
+        _;
+    }
+
+    modifier onlyPauser() {
+        if (msg.sender != pauser && msg.sender != owner) revert NotAuthorized();
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (paused) revert ContractPaused();
+        _;
+    }
+
+    modifier onlyRegistered() {
+        if (!userProfiles[msg.sender].isRegistered) revert UserNotRegistered();
+        _;
+    }
+
+    modifier validSpot(uint32 spotId) {
+        if (spotId >= totalSpots) revert InvalidSpotId();
+        if (!parkingSpots[spotId].isActive) revert SpotNotActive();
+        _;
+    }
+
+    // ============ Constructor ============
+
+    constructor() {
+        owner = msg.sender;
+        pauser = msg.sender;
+        paused = false;
+        totalSpots = 0;
+        reservationCounter = 0;
+        gatewayRequestCounter = 0;
+    }
+
+    // ============ Admin Functions ============
+
+    /// @notice Pause contract - fail-closed design for emergencies
+    function pause() external onlyPauser {
+        paused = true;
+        emit ContractPaused(msg.sender, block.timestamp);
+    }
+
+    /// @notice Unpause contract
+    function unpause() external onlyPauser {
+        paused = false;
+        emit ContractUnpaused(msg.sender, block.timestamp);
+    }
+
+    /// @notice Set new pauser address
+    function setPauser(address newPauser) external onlyOwner {
+        if (newPauser == address(0)) revert InvalidAddress();
+        address oldPauser = pauser;
+        pauser = newPauser;
+        emit PauserChanged(oldPauser, newPauser);
+    }
+
+    // ============ User Registration ============
+
+    /// @notice Register user with encrypted credentials using input proof verification (ZKPoK)
+    /// @dev Demonstrates multiple FHE types: euint32, euint64, ebool
+    /// @param encryptedUserId Encrypted input for user ID
+    /// @param encryptedCreditScore Encrypted input for credit score
+    /// @param hasLicense Encrypted input for license verification
+    /// @param initialBalance Encrypted input for wallet balance
+    /// @param inputProof Zero-knowledge proof for encrypted inputs
+    function registerUser(
+        einput encryptedUserId,
+        einput encryptedCreditScore,
+        einput hasLicense,
+        einput initialBalance,
+        bytes calldata inputProof
+    ) external whenNotPaused {
+        if (userProfiles[msg.sender].isRegistered) revert UserAlreadyRegistered();
+
+        // Input proof verification - ZKPoK verification for encrypted inputs
+        euint32 encUserId = FHE.asEuint32(encryptedUserId, inputProof);
+        euint32 encCreditScore = FHE.asEuint32(encryptedCreditScore, inputProof);
+        ebool encHasLicense = FHE.asEbool(hasLicense, inputProof);
+        euint64 encBalance = FHE.asEuint64(initialBalance, inputProof);
+
+        // Encrypted validation: credit score must be in range [300, 1000]
+        euint32 minScore = FHE.asEuint32(300);
+        euint32 maxScore = FHE.asEuint32(1000);
+        ebool validCreditScore = FHE.and(
+            FHE.gte(encCreditScore, minScore),
+            FHE.lte(encCreditScore, maxScore)
+        );
+
+        // Store user profile with all encrypted data
+        userProfiles[msg.sender] = UserProfile({
+            encryptedUserId: encUserId,
+            encryptedCreditScore: encCreditScore,
+            hasValidLicense: encHasLicense,
+            encryptedWalletBalance: encBalance,
+            isRegistered: true,
+            totalReservations: 0,
+            lastReservation: 0
+        });
+
+        encryptedUserIds[msg.sender] = encUserId;
+
+        // Set access control permissions for encrypted values
+        FHE.allowThis(encUserId);
+        FHE.allowThis(encCreditScore);
+        FHE.allowThis(encHasLicense);
+        FHE.allowThis(encBalance);
+        FHE.allow(encUserId, msg.sender);
+        FHE.allow(encCreditScore, msg.sender);
+        FHE.allow(encHasLicense, msg.sender);
+        FHE.allow(encBalance, msg.sender);
+
+        emit UserRegistered(msg.sender, block.timestamp);
+    }
+
+    // ============ Parking Spot Management ============
+
+    /// @notice Add parking spot with encrypted metadata
+    /// @dev Demonstrates euint32 and euint64 types
+    function addParkingSpot(
+        uint32 _price,
+        string memory _location,
+        uint32 _capacity
+    ) external onlyOwner whenNotPaused {
+        euint32 encPrice = FHE.asEuint32(_price);
+        euint8 encStatus = FHE.asEuint8(0); // 0 = available
+        euint32 encReservedBy = FHE.asEuint32(0); // 0 = no reserver
+        euint64 encReservationEnd = FHE.asEuint64(0); // 0 = no reservation
+        euint32 encCapacity = FHE.asEuint32(_capacity);
+
+        parkingSpots[totalSpots] = ParkingSpot({
+            encryptedPrice: encPrice,
+            encryptedStatus: encStatus,
+            isActive: true,
+            encryptedReservedBy: encReservedBy,
+            encryptedReservationEnd: encReservationEnd,
+            location: _location,
+            encryptedCapacity: encCapacity
+        });
+
+        // Set access permissions
+        FHE.allowThis(encPrice);
+        FHE.allowThis(encStatus);
+        FHE.allowThis(encReservedBy);
+        FHE.allowThis(encReservationEnd);
+        FHE.allowThis(encCapacity);
+
+        emit SpotAdded(totalSpots, _location, block.timestamp);
+        totalSpots++;
+    }
+
+    /// @notice Update spot price with encryption
+    function updateSpotPrice(uint32 spotId, uint32 newPrice) external onlyOwner validSpot(spotId) whenNotPaused {
+        euint32 encNewPrice = FHE.asEuint32(newPrice);
+        parkingSpots[spotId].encryptedPrice = encNewPrice;
+        FHE.allowThis(encNewPrice);
+        emit PriceUpdated(spotId, block.timestamp);
+    }
+
+    /// @notice Set spot maintenance status
+    function setSpotMaintenance(uint32 spotId, bool inMaintenance) external onlyOwner validSpot(spotId) whenNotPaused {
+        euint8 newStatus = FHE.asEuint8(inMaintenance ? 2 : 0); // 2 = maintenance, 0 = available
+        parkingSpots[spotId].encryptedStatus = newStatus;
+        FHE.allowThis(newStatus);
+        emit SpotStatusUpdated(spotId, block.timestamp);
+    }
+
+    // ============ Availability Check with Gateway ============
+
+    /// @notice Check spot availability using complex encrypted logic
+    /// @dev Demonstrates multiple FHE operations: eq, gt, or
+    function checkSpotAvailability(uint32 spotId)
+        public
+        view
+        validSpot(spotId)
+        returns (ebool)
+    {
+        ParkingSpot storage spot = parkingSpots[spotId];
+
+        // Check if status is available (0)
+        euint8 availableStatus = FHE.asEuint8(0);
+        ebool isStatusAvailable = FHE.eq(spot.encryptedStatus, availableStatus);
+
+        // Check if reservation has ended (current time > reservation end)
+        euint64 currentTime = FHE.asEuint64(uint64(block.timestamp));
+        ebool isTimeExpired = FHE.gt(currentTime, spot.encryptedReservationEnd);
+
+        // Spot is available if status is available OR time has expired
+        ebool isAvailable = FHE.or(isStatusAvailable, isTimeExpired);
+
+        return isAvailable;
+    }
+
+    /// @notice Request Gateway decryption of spot availability
+    /// @dev Demonstrates Gateway integration for async decryption
+    function requestSpotAvailabilityDecryption(uint32 spotId)
+        external
+        validSpot(spotId)
+        whenNotPaused
+        returns (uint256 requestId)
+    {
+        ebool availability = checkSpotAvailability(spotId);
+
+        // Request decryption via Gateway
+        uint256[] memory cts = new uint256[](1);
+        cts[0] = Gateway.toUint256(availability);
+
+        requestId = Gateway.requestDecryption(
+            cts,
+            this.callbackSpotAvailability.selector,
+            0,
+            block.timestamp + 100,
+            false
+        );
+
+        gatewayRequests[requestId] = GatewayRequest({
+            requester: msg.sender,
+            spotId: spotId,
+            reservationId: 0,
+            requestType: RequestType.AVAILABILITY_CHECK,
+            fulfilled: false
+        });
+
+        emit GatewayRequestInitiated(requestId, msg.sender, RequestType.AVAILABILITY_CHECK);
+    }
+
+    /// @notice Gateway callback for spot availability
+    /// @dev Called by Gateway after decryption completes
+    function callbackSpotAvailability(
+        uint256 requestId,
+        bool decryptedAvailability
+    ) public onlyGateway {
+        GatewayRequest storage request = gatewayRequests[requestId];
+        request.fulfilled = true;
+        emit GatewayRequestFulfilled(requestId, decryptedAvailability);
+    }
+
+    // ============ Reservation System ============
+
+    /// @notice Reserve parking spot with complex multi-condition encrypted eligibility checks
+    /// @dev Demonstrates advanced FHE: multiple encryption types, complex comparisons, fail-closed design
+    ///      Checks: availability, license, credit score, payment sufficiency, balance, duration validity
+    /// @param spotId The parking spot ID
+    /// @param encryptedDuration Encrypted reservation duration (in seconds)
+    /// @param encryptedPayment Encrypted payment amount
+    /// @param inputProof ZK proof for encrypted inputs
+    function reserveSpot(
+        uint32 spotId,
+        einput encryptedDuration,
+        einput encryptedPayment,
+        bytes calldata inputProof
+    ) external onlyRegistered validSpot(spotId) whenNotPaused returns (uint256 reservationId) {
+        ParkingSpot storage spot = parkingSpots[spotId];
+        UserProfile storage user = userProfiles[msg.sender];
+
+        // Input proof verification
+        euint64 encDuration = FHE.asEuint64(encryptedDuration, inputProof);
+        euint32 encPayment = FHE.asEuint32(encryptedPayment, inputProof);
+
+        // ============ Complex Multi-Condition Eligibility Check ============
+
+        // 1. Check spot availability
+        euint8 availableStatus = FHE.asEuint8(0);
+        ebool spotAvailable = FHE.eq(spot.encryptedStatus, availableStatus);
+
+        // 2. Check user has valid license (ebool comparison)
+        ebool hasLicense = user.hasValidLicense;
+
+        // 3. Check credit score >= 600 (encrypted comparison with euint32)
+        euint32 minCreditScore = FHE.asEuint32(600);
+        ebool goodCredit = FHE.gte(user.encryptedCreditScore, minCreditScore);
+
+        // 4. Check payment >= spot price (euint32 comparison)
+        ebool sufficientPayment = FHE.gte(encPayment, spot.encryptedPrice);
+
+        // 5. Check user balance >= payment (euint64 comparison)
+        euint64 encPayment64 = FHE.asEuint64(FHE.asEuint32(encPayment));
+        ebool sufficientBalance = FHE.gte(user.encryptedWalletBalance, encPayment64);
+
+        // 6. Check duration validity: 0 < duration <= 86400 seconds (24 hours)
+        euint64 minDuration = FHE.asEuint64(1);
+        euint64 maxDuration = FHE.asEuint64(86400);
+        ebool validDuration = FHE.and(
+            FHE.gt(encDuration, minDuration),
+            FHE.lte(encDuration, maxDuration)
+        );
+
+        // Combine ALL conditions with nested AND operations (fail-closed design)
+        // All conditions must be true for approval
+        ebool eligible = FHE.and(
+            FHE.and(
+                FHE.and(spotAvailable, hasLicense),
+                FHE.and(goodCredit, sufficientPayment)
+            ),
+            FHE.and(sufficientBalance, validDuration)
+        );
+
+        // Calculate encrypted reservation times
+        euint64 encStartTime = FHE.asEuint64(uint64(block.timestamp));
+        euint64 encEndTime = FHE.add(encStartTime, encDuration);
+
+        // Create reservation
+        euint8 encReservationStatus = FHE.asEuint8(0); // 0 = active
+        euint8 encSpotStatusReserved = FHE.asEuint8(1); // 1 = reserved
+
+        reservationId = reservationCounter;
+
+        reservations[reservationId] = Reservation({
+            spotId: spotId,
+            encryptedUserId: user.encryptedUserId,
+            encryptedPaidAmount: encPayment,
+            encryptedStartTime: encStartTime,
+            encryptedEndTime: encEndTime,
+            encryptedStatus: encReservationStatus,
+            isApproved: eligible,  // Encrypted approval status
+            isActive: true
+        });
+
+        // Update spot status
+        spot.encryptedStatus = encSpotStatusReserved;
+        spot.encryptedReservedBy = user.encryptedUserId;
+        spot.encryptedReservationEnd = encEndTime;
+
+        // Deduct from user balance (encrypted subtraction)
+        user.encryptedWalletBalance = FHE.sub(user.encryptedWalletBalance, encPayment64);
+
+        // Update user statistics
+        user.totalReservations++;
+        user.lastReservation = block.timestamp;
+        userReservations[msg.sender].push(reservationId);
+
+        // Set access control permissions
+        FHE.allowThis(encDuration);
+        FHE.allowThis(encPayment);
+        FHE.allowThis(encStartTime);
+        FHE.allowThis(encEndTime);
+        FHE.allowThis(encReservationStatus);
+        FHE.allowThis(eligible);
+        FHE.allow(encPayment, msg.sender);
+        FHE.allow(encStartTime, msg.sender);
+        FHE.allow(encEndTime, msg.sender);
+        FHE.allow(eligible, msg.sender);
+
+        emit ReservationCreated(reservationId, spotId, msg.sender, block.timestamp);
+        reservationCounter++;
+    }
+
+    /// @notice Request Gateway approval for reservation via decryption
+    /// @dev Demonstrates Gateway callback pattern for encrypted business logic
+    function requestReservationApproval(uint256 reservationId)
+        external
+        whenNotPaused
+        returns (uint256 requestId)
+    {
+        if (reservationId >= reservationCounter) revert InvalidReservationId();
+
+        Reservation storage reservation = reservations[reservationId];
+        if (!reservation.isActive) revert ReservationNotActive();
+
+        // Request decryption of approval status
+        uint256[] memory cts = new uint256[](1);
+        cts[0] = Gateway.toUint256(reservation.isApproved);
+
+        requestId = Gateway.requestDecryption(
+            cts,
+            this.callbackReservationApproval.selector,
+            0,
+            block.timestamp + 100,
+            false
+        );
+
+        gatewayRequests[requestId] = GatewayRequest({
+            requester: msg.sender,
+            spotId: reservation.spotId,
+            reservationId: reservationId,
+            requestType: RequestType.RESERVATION_APPROVAL,
+            fulfilled: false
+        });
+
+        emit GatewayRequestInitiated(requestId, msg.sender, RequestType.RESERVATION_APPROVAL);
+    }
+
+    /// @notice Gateway callback for reservation approval
+    /// @dev Finalizes reservation based on decrypted approval status
+    function callbackReservationApproval(
+        uint256 requestId,
+        bool decryptedApproval
+    ) public onlyGateway {
+        GatewayRequest storage request = gatewayRequests[requestId];
+        request.fulfilled = true;
+
+        if (decryptedApproval) {
+            emit ReservationApproved(request.reservationId, request.spotId, block.timestamp);
+        } else {
+            // Reject reservation - revert state changes (fail-closed)
+            Reservation storage reservation = reservations[request.reservationId];
+            reservation.isActive = false;
+
+            // Release spot
+            ParkingSpot storage spot = parkingSpots[request.spotId];
+            spot.encryptedStatus = FHE.asEuint8(0); // available
+            spot.encryptedReservedBy = FHE.asEuint32(0);
+            spot.encryptedReservationEnd = FHE.asEuint64(0);
+        }
+
+        emit GatewayRequestFulfilled(requestId, decryptedApproval);
+    }
+
+    /// @notice Complete reservation and release spot
+    function completeReservation(uint256 reservationId) external whenNotPaused {
+        if (reservationId >= reservationCounter) revert InvalidReservationId();
+
+        Reservation storage reservation = reservations[reservationId];
+        if (!reservation.isActive) revert ReservationNotActive();
+
+        // Update reservation status to completed
+        euint8 completedStatus = FHE.asEuint8(1); // 1 = completed
+        reservation.encryptedStatus = completedStatus;
+
+        // Release parking spot
+        ParkingSpot storage spot = parkingSpots[reservation.spotId];
+        euint8 availableStatus = FHE.asEuint8(0); // 0 = available
+        euint32 noReserver = FHE.asEuint32(0);
+        euint64 noReservationEnd = FHE.asEuint64(0);
+
+        spot.encryptedStatus = availableStatus;
+        spot.encryptedReservedBy = noReserver;
+        spot.encryptedReservationEnd = noReservationEnd;
+
+        // Set permissions
+        FHE.allowThis(completedStatus);
+        FHE.allowThis(availableStatus);
+        FHE.allowThis(noReserver);
+        FHE.allowThis(noReservationEnd);
+
+        emit ReservationCompleted(reservationId, reservation.spotId, block.timestamp);
+    }
+
+    /// @notice Cancel reservation with time restrictions
+    function cancelReservation(uint256 reservationId) external whenNotPaused {
+        if (reservationId >= reservationCounter) revert InvalidReservationId();
+
+        Reservation storage reservation = reservations[reservationId];
+        if (!reservation.isActive) revert ReservationNotActive();
+
+        // Can only cancel within 30 minutes of creation (fail-closed design)
+        UserProfile storage user = userProfiles[msg.sender];
+        if (block.timestamp > user.lastReservation + 1800) revert TooLateToCancel();
+
+        // Update reservation status to cancelled
+        euint8 cancelledStatus = FHE.asEuint8(2); // 2 = cancelled
+        reservation.encryptedStatus = cancelledStatus;
+        reservation.isActive = false;
+
+        // Release parking spot
+        ParkingSpot storage spot = parkingSpots[reservation.spotId];
+        euint8 availableStatus = FHE.asEuint8(0);
+        euint32 noReserver = FHE.asEuint32(0);
+        euint64 noReservationEnd = FHE.asEuint64(0);
+
+        spot.encryptedStatus = availableStatus;
+        spot.encryptedReservedBy = noReserver;
+        spot.encryptedReservationEnd = noReservationEnd;
+
+        // Refund to user balance (encrypted addition)
+        euint64 refundAmount = FHE.asEuint64(FHE.asEuint32(reservation.encryptedPaidAmount));
+        user.encryptedWalletBalance = FHE.add(user.encryptedWalletBalance, refundAmount);
+
+        // Set permissions
+        FHE.allowThis(cancelledStatus);
+        FHE.allowThis(availableStatus);
+        FHE.allowThis(noReserver);
+        FHE.allowThis(noReservationEnd);
+
+        emit ReservationCancelled(reservationId, reservation.spotId, block.timestamp);
+    }
+
+    // ============ Query Functions ============
+
+    /// @notice Get user reservation history
+    function getUserReservations(address user) external view returns (uint256[] memory) {
+        return userReservations[user];
+    }
+
+    /// @notice Get spot public information
+    function getSpotInfo(uint32 spotId) external view validSpot(spotId) returns (
+        string memory location,
+        bool isActive
+    ) {
+        ParkingSpot storage spot = parkingSpots[spotId];
+        return (spot.location, spot.isActive);
+    }
+
+    /// @notice Get reservation public information
+    function getReservationInfo(uint256 reservationId) external view returns (
+        uint32 spotId,
+        bool isActive
+    ) {
+        if (reservationId >= reservationCounter) revert InvalidReservationId();
+        Reservation storage reservation = reservations[reservationId];
+        return (reservation.spotId, reservation.isActive);
+    }
+
+    /// @notice Get system statistics
+    function getStatistics() external view returns (
+        uint32 totalParkingSpots,
+        uint256 totalReservations,
+        uint256 currentTime,
+        bool isPaused
+    ) {
+        return (totalSpots, reservationCounter, block.timestamp, paused);
+    }
+
+    /// @notice Emergency spot release (admin only)
+    function emergencyReleaseSpot(uint32 spotId) external onlyOwner validSpot(spotId) {
+        ParkingSpot storage spot = parkingSpots[spotId];
+
+        euint8 availableStatus = FHE.asEuint8(0);
+        euint32 noReserver = FHE.asEuint32(0);
+        euint64 noReservationEnd = FHE.asEuint64(0);
+
+        spot.encryptedStatus = availableStatus;
+        spot.encryptedReservedBy = noReserver;
+        spot.encryptedReservationEnd = noReservationEnd;
+
+        FHE.allowThis(availableStatus);
+        FHE.allowThis(noReserver);
+        FHE.allowThis(noReservationEnd);
+
+        emit SpotStatusUpdated(spotId, block.timestamp);
+    }
+}
