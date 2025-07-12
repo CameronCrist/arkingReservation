@@ -1,0 +1,50 @@
+{
+  "name": "private-parking-reservation",
+  "version": "2.0.0",
+  "description": "机密停车位预订系统 - 基于Zama FHE技术的隐私停车资源分配 - Enhanced with Gateway, Multiple FHE Types, Fail-Closed Design",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat deploy --network sepolia",
+    "deploy:local": "npx hardhat deploy --network localhost",
+    "test": "npx hardhat test",
+    "test:coverage": "npx hardhat coverage",
+    "test:gas": "REPORT_GAS=true npx hardhat test",
+    "node": "npx hardhat node",
+    "node:fhevm": "npx hardhat node --network fhevm",
+    "start": "npx http-server public -p 3000 -c-1 --cors",
+    "typechain": "npx hardhat typechain",
+    "size": "npx hardhat size-contracts",
+    "clean": "npx hardhat clean",
+    "verify": "npx hardhat verify --network sepolia",
+    "check": "node scripts/check-setup.js"
+  },
+  "keywords": ["fhe", "zama", "parking", "privacy", "blockchain", "reservation", "gateway", "fhevm"],
+  "author": "Zama FHE Developer",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomicfoundation/hardhat-verify": "^1.0.0",
+    "@typechain/ethers-v6": "^0.4.0",
+    "@typechain/hardhat": "^8.0.0",
+    "@types/chai": "^4.2.0",
+    "@types/mocha": ">=9.1.0",
+    "@types/node": "^20.0.0",
+    "chai": "^4.3.7",
+    "hardhat": "^2.19.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-deploy": "^0.11.45",
+    "solidity-coverage": "^0.8.5",
+    "typechain": "^8.3.2",
+    "typescript": "^5.2.0",
+    "ts-node": "^10.9.1"
+  },
+  "dependencies": {
+    "ethers": "^6.9.0",
+    "dotenv": "^16.3.1"
+  }
+}
