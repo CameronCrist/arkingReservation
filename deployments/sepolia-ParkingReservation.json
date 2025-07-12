@@ -1,0 +1,10 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "contractName": "ParkingReservation",
+  "contractAddress": "0x78257622318fC85f2a9c909DD7aF9d0142cd90ce",
+  "deployer": "0x280b1b04D8d8f36173B41DB82148aa442f861976",
+  "deploymentTime": "2025-10-23T12:05:37.937Z",
+  "blockNumber": 9472844,
+  "txHash": "0x2025411dece4fe96c369a20a47e2ad8670cb2f956150b155eda4b12ee8f2ac55"
+}
