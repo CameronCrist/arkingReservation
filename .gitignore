@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Hardhat files
+cache/
+artifacts/
+typechain-types/
+
+# Coverage reports
+coverage/
+coverage.json
+.coverage_artifacts/
+.coverage_cache/
+.coverage_contracts/
+
+# Gas reports
+gas-report.txt
+
+# Deployment artifacts
+deployments/localhost/
+deployments/hardhat/
+
+# TypeChain artifacts
+typechain/
+
+# Build artifacts
+build/
+dist/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test artifacts
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Hardhat network state
+deployments/localhost/
+deployments/hardhat/
+
+# Compiled contracts
+*.abi
+*.bin
+
+# Flatten output
+flattened/
+
+# Keep example files
+!.env.example
