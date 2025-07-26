@@ -10,9 +10,9 @@ A privacy-preserving parking resource allocation platform built on Zama's Fully 
 
 ## 🔗 Quick Links
 
-- 🌐 **Live Demo**: [https://private-parking-reservation.vercel.app/](https://private-parking-reservation.vercel.app/)
+- 🌐 **Live Demo**: [https://arking-reservation.vercel.app/](https://arking-reservation.vercel.app/)
 - 📜 **Contract**: [0x78257622318fC85f2a9c909DD7aF9d0142cd90ce](https://sepolia.etherscan.io/address/0x78257622318fC85f2a9c909DD7aF9d0142cd90ce)
-- 📦 **GitHub**: [CameronCrist/PrivateParkingReservation](https://github.com/CameronCrist/PrivateParkingReservation)
+- 📦 **GitHub**: [CameronCrist/PrivateParkingReservation](https://github.com/CameronCrist/arkingReservation)
 - 📚 **Docs**: [Framework Summary](./FRAMEWORK_SUMMARY.md) | [Deployment Guide](./DEPLOYMENT.md) | [Project Structure](./PROJECT_STRUCTURE.md)
 
 ## 🌟 Project Overview
@@ -118,7 +118,7 @@ Our smart contract utilizes **Zama's TFHE library** to perform the following enc
 
 ## 🌐 Live Demonstration
 
-**🌍 Website**: [https://private-parking-reservation.vercel.app/](https://private-parking-reservation.vercel.app/)
+**🌍 Website**: [https://arking-reservation.vercel.app/](https://arking-reservation.vercel.app/)
 
 ### 📜 Smart Contract Deployment
 
@@ -305,7 +305,7 @@ For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md)
 ## 🚀 Quick Start Guide
 
 ### Step 1: Access the Platform
-1. Navigate to [https://private-parking-reservation.vercel.app/](https://private-parking-reservation.vercel.app/)
+1. Navigate to [https://arking-reservation.vercel.app/](https://arking-reservation.vercel.app/)
 2. Ensure you have a modern web browser with JavaScript enabled
 3. Install MetaMask browser extension if not already available
 
@@ -393,7 +393,7 @@ For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ## 🤝 Open Source Contribution
 
-**📂 Repository**: [https://github.com/CameronCrist/PrivateParkingReservation](https://github.com/CameronCrist/PrivateParkingReservation)
+**📂 Repository**: [https://github.com/CameronCrist/arkingReservation](https://github.com/CameronCrist/arkingReservation)
 
 ### Contribution Opportunities
 - **🔐 FHE Optimization**: Improve homomorphic encryption efficiency and gas usage
