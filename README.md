@@ -11,7 +11,7 @@ A privacy-preserving parking resource allocation platform built on Zama's Fully 
 ## 🔗 Quick Links
 
 - 🌐 **Live Demo**: [https://arking-reservation.vercel.app/](https://arking-reservation.vercel.app/)
-- 📜 **Contract**: [0x78257622318fC85f2a9c909DD7aF9d0142cd90ce](https://sepolia.etherscan.io/address/0x78257622318fC85f2a9c909DD7aF9d0142cd90ce)
+- 📜 **Contract**: [0xCca46D59993Df50Bb3D9b169A199fC3F84f5c18e](https://sepolia.etherscan.io/address/0xCca46D59993Df50Bb3D9b169A199fC3F84f5c18e)
 - 📦 **GitHub**: [CameronCrist/PrivateParkingReservation](https://github.com/CameronCrist/arkingReservation)
 - 📚 **Docs**: [Framework Summary](./FRAMEWORK_SUMMARY.md) | [Deployment Guide](./DEPLOYMENT.md) | [Project Structure](./PROJECT_STRUCTURE.md)
 
@@ -124,7 +124,7 @@ Our smart contract utilizes **Zama's TFHE library** to perform the following enc
 
 | Network | Contract Address | Explorer Link |
 |---------|------------------|---------------|
-| **Sepolia Testnet** | `0x78257622318fC85f2a9c909DD7aF9d0142cd90ce` | [View on Etherscan](https://sepolia.etherscan.io/address/0x78257622318fC85f2a9c909DD7aF9d0142cd90ce) |
+| **Sepolia Testnet** | `0xCca46D59993Df50Bb3D9b169A199fC3F84f5c18e` | [View on Etherscan](https://sepolia.etherscan.io/address/0xCca46D59993Df50Bb3D9b169A199fC3F84f5c18e) |
 
 **Network Details**:
 - **Chain ID**: 11155111 (Sepolia)
