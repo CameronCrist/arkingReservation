@@ -19,7 +19,8 @@
 
 A full-stack decentralized parking reservation platform built on **Zama's Fully Homomorphic Encryption (FHE)** technology, featuring a modern **React frontend** and **Solidity smart contracts**. Users can reserve parking spots while keeping their personal information, credit scores, and booking patterns completely private through on-chain encrypted computations.
 
-**🔗 Live Demo**: [Coming Soon]
+**🔗 Live Demo**: [View](https://arking-reservation.vercel.app/) 
+
 **📜 Contract**: [View on Sepolia Etherscan](https://sepolia.etherscan.io/)
 **💻 Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
 
