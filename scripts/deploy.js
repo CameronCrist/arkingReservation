@@ -4,63 +4,63 @@ const path = require("path");
 
 async function main() {
   console.log("=".repeat(60));
-  console.log("开始部署机密停车位预订合约...");
+  console.log("Starting Private Parking Reservation Contract Deployment...");
   console.log("=".repeat(60));
 
-  // 获取部署账户
+  // Get deployer account
   const [deployer] = await ethers.getSigners();
   const balance = await ethers.provider.getBalance(deployer.address);
 
-  console.log("\n📋 部署信息:");
+  console.log("\n📋 Deployment Information:");
   console.log("─".repeat(60));
-  console.log("部署账户:", deployer.address);
-  console.log("账户余额:", ethers.formatEther(balance), "ETH");
-  console.log("网络名称:", network.name);
+  console.log("Deployer Address:", deployer.address);
+  console.log("Account Balance:", ethers.formatEther(balance), "ETH");
+  console.log("Network Name:", network.name);
   console.log("Chain ID:", network.config.chainId);
   console.log("─".repeat(60));
 
-  // 检查余额是否足够
+  // Check balance
   if (balance === 0n) {
-    throw new Error("❌ 部署账户余额不足！请向账户充值。");
+    throw new Error("❌ Insufficient balance! Please fund the deployer account.");
   }
 
-  // 选择要部署的合约
+  // Select contract to deploy
   const contractName = "ParkingReservation";
-  console.log(`\n🚀 正在部署合约: ${contractName}...`);
+  console.log(`\n🚀 Deploying contract: ${contractName}...`);
 
-  // 部署合约
+  // Deploy contract
   const ContractFactory = await ethers.getContractFactory(contractName);
 
-  console.log("📦 开始部署交易...");
+  console.log("📦 Starting deployment transaction...");
   const contract = await ContractFactory.deploy();
 
-  console.log("⏳ 等待合约部署确认...");
+  console.log("⏳ Waiting for deployment confirmation...");
   await contract.waitForDeployment();
 
   const contractAddress = await contract.getAddress();
 
-  console.log("\n✅ 合约部署成功！");
+  console.log("\n✅ Contract deployed successfully!");
   console.log("─".repeat(60));
-  console.log("合约地址:", contractAddress);
+  console.log("Contract Address:", contractAddress);
   console.log("─".repeat(60));
 
-  // 验证合约部署
-  console.log("\n🔍 验证合约部署...");
+  // Verify deployment
+  console.log("\n🔍 Verifying contract deployment...");
   try {
     const owner = await contract.owner();
-    console.log("✓ 合约所有者:", owner);
+    console.log("✓ Contract Owner:", owner);
 
     const stats = await contract.getStatistics();
-    console.log("\n📊 初始统计信息:");
-    console.log("  • 总停车位数:", stats[0].toString());
-    console.log("  • 总预订数:", stats[1].toString());
-    console.log("  • 当前时间戳:", stats[2].toString());
+    console.log("\n📊 Initial Statistics:");
+    console.log("  • Total Parking Spots:", stats[0].toString());
+    console.log("  • Total Reservations:", stats[1].toString());
+    console.log("  • Current Timestamp:", stats[2].toString());
 
   } catch (error) {
-    console.error("⚠️  验证合约时出现警告:", error.message);
+    console.error("⚠️  Warning during verification:", error.message);
   }
 
-  // 保存部署信息
+  // Save deployment info
   const deploymentInfo = {
     network: network.name,
     chainId: network.config.chainId,
@@ -72,21 +72,21 @@ async function main() {
     txHash: contract.deploymentTransaction()?.hash || "N/A",
   };
 
-  // 创建 deployments 目录
+  // Create deployments directory
   const deploymentsDir = path.join(__dirname, "..", "deployments");
   if (!fs.existsSync(deploymentsDir)) {
     fs.mkdirSync(deploymentsDir, { recursive: true });
   }
 
-  // 保存部署信息到文件
+  // Save deployment info to file
   const deploymentFile = path.join(
     deploymentsDir,
     `${network.name}-${contractName}.json`
   );
   fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
-  console.log(`\n💾 部署信息已保存到: ${deploymentFile}`);
+  console.log(`\n💾 Deployment info saved to: ${deploymentFile}`);
 
-  // 保存 ABI
+  // Save ABI
   const artifactPath = path.join(
     __dirname,
     "..",
@@ -100,38 +100,38 @@ async function main() {
     const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     const abiFile = path.join(deploymentsDir, `${contractName}-ABI.json`);
     fs.writeFileSync(abiFile, JSON.stringify(artifact.abi, null, 2));
-    console.log(`📄 ABI 已保存到: ${abiFile}`);
+    console.log(`📄 ABI saved to: ${abiFile}`);
   }
 
-  // 显示区块链浏览器链接
-  console.log("\n🔗 区块链浏览器链接:");
+  // Display blockchain explorer links
+  console.log("\n🔗 Blockchain Explorer Links:");
   console.log("─".repeat(60));
 
   const explorerUrls = {
     sepolia: `https://sepolia.etherscan.io/address/${contractAddress}`,
     mainnet: `https://etherscan.io/address/${contractAddress}`,
     goerli: `https://goerli.etherscan.io/address/${contractAddress}`,
-    localhost: "本地网络 - 无浏览器",
-    hardhat: "Hardhat 网络 - 无浏览器",
+    localhost: "Local Network - No Explorer",
+    hardhat: "Hardhat Network - No Explorer",
   };
 
-  const explorerUrl = explorerUrls[network.name] || "未知网络";
+  const explorerUrl = explorerUrls[network.name] || "Unknown Network";
   console.log("Etherscan:", explorerUrl);
   console.log("─".repeat(60));
 
-  // 显示后续步骤
-  console.log("\n📝 后续步骤:");
+  // Display next steps
+  console.log("\n📝 Next Steps:");
   console.log("─".repeat(60));
-  console.log("1. 验证合约（如果在测试网/主网）:");
+  console.log("1. Verify contract (if on testnet/mainnet):");
   console.log(`   npx hardhat run scripts/verify.js --network ${network.name}`);
-  console.log("\n2. 与合约交互:");
+  console.log("\n2. Interact with contract:");
   console.log(`   npx hardhat run scripts/interact.js --network ${network.name}`);
-  console.log("\n3. 运行模拟测试:");
+  console.log("\n3. Run simulation test:");
   console.log(`   npx hardhat run scripts/simulate.js --network ${network.name}`);
   console.log("─".repeat(60));
 
   console.log("\n" + "=".repeat(60));
-  console.log("✨ 部署流程完成！");
+  console.log("✨ Deployment Complete!");
   console.log("=".repeat(60));
 
   return {
@@ -141,12 +141,12 @@ async function main() {
   };
 }
 
-// 执行部署
+// Execute deployment
 if (require.main === module) {
   main()
     .then(() => process.exit(0))
     .catch((error) => {
-      console.error("\n❌ 部署失败:");
+      console.error("\n❌ Deployment Failed:");
       console.error(error);
       process.exit(1);
     });

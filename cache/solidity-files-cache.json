@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "D:\\contracts\\ParkingReservation.sol": {
-      "lastModificationDate": 1761221030283,
-      "contentHash": "9f48d2aedebec3c66889d58d47431fba",
+      "lastModificationDate": 1762186421901,
+      "contentHash": "1dfc6de93397293ba59b90eeda7e1f38",
       "sourceName": "contracts/ParkingReservation.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -14,16 +14,20 @@
           },
           "evmVersion": "cancun",
           "viaIR": false,
+          "metadata": {
+            "bytecodeHash": "none",
+            "useLiteralContent": true
+          },
           "outputSelection": {
             "*": {
               "*": [
-                "abi",
                 "evm.bytecode",
                 "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata",
                 "devdoc",
                 "userdoc",
+                "metadata",
+                "abi",
+                "evm.methodIdentifiers",
                 "storageLayout",
                 "evm.gasEstimates"
               ],
@@ -31,9 +35,6 @@
                 "ast"
               ]
             }
-          },
-          "metadata": {
-            "useLiteralContent": true
           }
         }
       },
