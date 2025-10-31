@@ -15,11 +15,19 @@ const config: HardhatUserConfig = {
     version: "0.8.24",
     settings: {
       optimizer: {
-        enabled: true,
-        runs: 200,
+        enabled: process.env.OPTIMIZER_ENABLED !== "false",
+        runs: parseInt(process.env.OPTIMIZER_RUNS || "200"),
       },
       evmVersion: "cancun",
       viaIR: false,
+      metadata: {
+        bytecodeHash: "none",
+      },
+      outputSelection: {
+        "*": {
+          "*": ["evm.bytecode", "evm.deployedBytecode", "devdoc", "userdoc", "metadata", "abi"],
+        },
+      },
     },
   },
   networks: {
@@ -83,6 +91,10 @@ const config: HardhatUserConfig = {
     outputFile: "gas-report.txt",
     noColors: true,
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+    token: "ETH",
+    gasPriceApi: "https://api.etherscan.io/api?module=proxy&action=eth_gasPrice",
+    showTimeSpent: true,
+    showMethodSig: true,
   },
   etherscan: {
     apiKey: {

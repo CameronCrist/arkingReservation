@@ -1,6 +1,6 @@
-# 部署指南 - Private Parking Reservation System
+# Deployment Guide - Private Parking Reservation System
 
-本文档详细说明了如何部署和验证机密停车位预订系统智能合约。
+Complete deployment guide for the Private Parking Reservation System using Hardhat framework.
 
 ## 📋 目录
 
