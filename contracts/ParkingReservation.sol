@@ -7,7 +7,6 @@ pragma solidity ^0.8.24;
  * @dev Standard Solidity implementation for Sepolia deployment
  */
 contract ParkingReservation {
-
     // ============ State Variables ============
 
     address public owner;
@@ -18,7 +17,7 @@ contract ParkingReservation {
 
     struct ParkingSpot {
         string location;
-        uint256 pricePerHour;  // Price in wei
+        uint256 pricePerHour; // Price in wei
         bool isAvailable;
         address spotOwner;
     }
@@ -175,11 +174,7 @@ contract ParkingReservation {
      * @return _totalReservations Total reservations
      * @return _timestamp Current timestamp
      */
-    function getStatistics() external view returns (
-        uint32 _totalSpots,
-        uint32 _totalReservations,
-        uint256 _timestamp
-    ) {
+    function getStatistics() external view returns (uint32 _totalSpots, uint32 _totalReservations, uint256 _timestamp) {
         return (totalSpots, reservationCounter, block.timestamp);
     }
 
@@ -200,11 +195,9 @@ contract ParkingReservation {
      * @return creditScore Credit score
      * @return isRegistered Registration status
      */
-    function getUserInfo(address userAddress) external view returns (
-        uint32 userId,
-        uint16 creditScore,
-        bool isRegistered
-    ) {
+    function getUserInfo(
+        address userAddress
+    ) external view returns (uint32 userId, uint16 creditScore, bool isRegistered) {
         User memory user = users[userAddress];
         return (user.userId, user.creditScore, user.isRegistered);
     }
